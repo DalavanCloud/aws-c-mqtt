@@ -525,6 +525,9 @@ struct subscribe_task_arg {
     const struct aws_string *filter;
     enum aws_mqtt_qos qos;
 
+    aws_mqtt_suback_fn *on_suback;
+    void *on_suback_ud;
+
     aws_mqtt_client_publish_received_fn *on_publish;
     aws_mqtt_userdata_cleanup_fn *on_cleanup;
     void *on_publish_ud;
@@ -616,6 +619,16 @@ handle_error:
     return true;
 }
 
+static void s_subscribe_complete(struct aws_mqtt_client_connection *connection, uint16_t packet_id, void *userdata) {
+
+    struct subscribe_task_arg *task_arg = userdata;
+
+    if (task_arg->on_suback) {
+        struct aws_byte_cursor topic_cursor = aws_byte_cursor_from_string(task_arg->filter);
+        task_arg->on_suback(connection, packet_id, &topic_cursor, task_arg->qos, task_arg->on_suback_ud);
+    }
+}
+
 uint16_t aws_mqtt_client_connection_subscribe(
     struct aws_mqtt_client_connection *connection,
     const struct aws_byte_cursor *topic_filter,
@@ -623,7 +636,7 @@ uint16_t aws_mqtt_client_connection_subscribe(
     aws_mqtt_client_publish_received_fn *on_publish,
     void *on_publish_ud,
     aws_mqtt_userdata_cleanup_fn *on_ud_cleanup,
-    aws_mqtt_op_complete_fn *on_suback,
+    aws_mqtt_suback_fn *on_suback,
     void *on_suback_ud) {
 
     assert(connection);
@@ -639,6 +652,8 @@ uint16_t aws_mqtt_client_connection_subscribe(
     }
 
     task_arg->connection = connection;
+    task_arg->on_suback = on_suback;
+    task_arg->on_suback_ud = on_suback_ud;
     task_arg->on_publish = on_publish;
     task_arg->on_publish_ud = on_publish_ud;
     task_arg->on_cleanup = on_ud_cleanup;
@@ -650,7 +665,7 @@ uint16_t aws_mqtt_client_connection_subscribe(
     }
 
     uint16_t packet_id =
-        mqtt_create_request(task_arg->connection, &s_subscribe_send, task_arg, on_suback, on_suback_ud);
+        mqtt_create_request(task_arg->connection, &s_subscribe_send, task_arg, &s_subscribe_complete, task_arg);
 
     if (packet_id) {
         return packet_id;

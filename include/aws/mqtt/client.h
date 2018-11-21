@@ -60,6 +60,14 @@ struct aws_mqtt_client_connection_callbacks {
 typedef void(
     aws_mqtt_op_complete_fn)(struct aws_mqtt_client_connection *connection, uint16_t packet_id, void *userdata);
 
+/** Called when a subscription request is complete */
+typedef void(aws_mqtt_suback_fn)(
+    struct aws_mqtt_client_connection *connection,
+    uint16_t packet_id,
+    const struct aws_byte_cursor *topic,
+    int return_code,
+    void *userdata);
+
 /** Type of function called when a publish recieved matches a subscription (client specific) */
 typedef void(aws_mqtt_client_publish_received_fn)(
     struct aws_mqtt_client_connection *connection,
@@ -217,7 +225,7 @@ uint16_t aws_mqtt_client_connection_subscribe(
     aws_mqtt_client_publish_received_fn *on_publish,
     void *on_publish_ud,
     aws_mqtt_userdata_cleanup_fn *on_ud_cleanup,
-    aws_mqtt_op_complete_fn *on_suback,
+    aws_mqtt_suback_fn *on_suback,
     void *on_suback_ud);
 
 /**
